@@ -1,0 +1,160 @@
+---
+title: "Rising Tides: A Spatial Examination of Sea Level Rise in New York City"
+author: "Cameron Wuethrich"
+date: "3/10/2020"
+output:
+  rmarkdown::html_document:
+    theme: lumen
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sf)
+library(tidyverse)
+library(tmap)
+library(tidycensus)
+library(tigris)
+library(raster)
+library(dplyr)
+library(readr)
+library(maps)
+library(ggthemes)
+library(leaflet)
+library(gganimate)
+library(ggplot2)
+library(plotly)
+library(ggmap)
+library(rgeos)
+library(rgdal)
+library(prettydoc)
+
+setwd("Z:/finalProject")
+
+gmslYr<-read_csv("histSLR/archive/csiro_alt_gmsl_yr_2015.csv")
+gmslMo<-read_csv("histSLR/archive/csiro_alt_gmsl_mo_2015.csv")
+gmslPlot<- ggplot(gmslYr, aes(x=Time, y=GMSL)) + geom_line(color="Blue") +
+  theme_minimal() + ylab("Sea Height Variation (mm)") 
+
+bfe<-st_read("PFIRM/s_bfe.shp")
+cbrs <- st_read("PFIRM/s_cbrs.shp")
+fldHaz <- st_read("PFIRM/s_fld_haz_ar.shp")
+sandy<-st_read("sandyInZone/sandyInZone.shp")
+
+st_is_valid(fldHaz)
+st_is_valid(sandy)
+
+pfrimMap <-
+  tm_shape(fldHaz)+ 
+  tm_polygons(col= "FLD_ZONE", palette = "Reds", alpha = 0.7) + 
+  tm_shape(bfe)+ 
+  tm_lines(col="ELEV", palette = "YlGnBu", n=3)+
+  tm_shape(cbrs)+ 
+  tm_polygons() + 
+  tm_shape(sandy)+ 
+  tm_polygons(col="comments", palette="Blues", legend.show=FALSE)+ 
+  tm_basemap(server = "CartoDB.Positron")
+
+census_api_key("2261de883be84ef5125887716e3c8ff1dd812446")
+
+nyAcs <- load_variables(2017, "acs5", cache = TRUE)
+
+nyTracts <- get_acs(geography = "tract", table = "B19013", 
+                    year = 2017,  output = "wide", state = "NY", 
+                    county= c("New York", "Kings", "Bronx", "Richmond", "Queens") , 
+                    geometry = TRUE)
+nyTracts <- nyTracts[-c(2,4)] %>%
+  drop_na() %>%
+  rename(est=B19013_001E) %>%
+  st_transform(crs = 2263)
+slr20FP <- st_read("slrHunYr/hunYr20s.shp")
+slr50FP<- st_read("slrHunYr/hunYr50s.shp")
+
+st_is_valid(slr20FP)
+st_is_valid(slr50FP)
+nyMap<- 
+  tm_shape(nyTracts) +
+  tm_fill(col = "est",
+          palette = "YlOrBr", alpha = 0.7,
+          title = "Median Household Income Estimates") +
+  tm_shape(slr20FP) +
+  tm_fill(col="abfe_0_2pc", alpha = 0.5,
+          palette="Blues",
+          legend.show = FALSE)+
+  tm_shape(slr50FP) +
+  tm_fill(col="abfe_0_2pc", alpha = 0.5,
+          palette="Blues",
+          legend.show = FALSE) + 
+  tm_shape(fldHaz)+ 
+  tm_polygons(col= "FLD_ZONE", palette = "Reds", alpha = 0.7)+ 
+  tm_basemap(server = "CartoDB.Positron")
+
+```
+![](https://images.app.goo.gl/Z3xcxNDDsEWEpjTr7)
+
+# The Future of Sea Level Rise in NYC
+  As our global climate increases, unexpected and dangerous phenomena will impact the people and ecosystems of our planet. Fears over [Sea Level Rise](https://sealevelrise.org/) (SLR) have increased with both growing concern and a greater understanding of climate change. Sea Level Rise has already increased dramatically in the 20th century and will continue to do so as we progress through the 21st (Nicholls, 1517). Climate change and SLR are global issues that affect each and every one of us. However, as more people move to coastal communities for picturesque views and beach access, more people subject themselves to the risks of floods and other natural disasters. Although SLR proves to be a threat to livelihoods, lives, and economies, it provides an interesting challenge to city planners and environmentalists as they consider new and innovative ways to mitigate, prevent, and adapt to its effects. 
+	Out of the many cities at risk, New York is currently at an important crossroads. The city has recently dealt with the impact of climate change following Hurricanes Irene and Sandy, which flooded many areas of the city, including subway lines and neighborhoods. This project aims to map current and predicted levels of SLR in New York City in order to highlight what areas will be at risk at different times in the future. In addition to the inclusion of high-risk areas, this interactive map highlights areas that already face environmental and social injustice, such as low-income neighborhoods. The final aspect of this project is a discussion, and hopefully a spatial component, of proposed plans to mitigate SLR in NYC. There are many large undertakings combating SLR in New York currently. Some of these projects include the [Bjarke Ingels Group (BIG) U Project](http://www.rebuildbydesign.org/our-work/all-proposals/winning-projects/big-u) and a plan to extend Lower Manhattan with the addition of elevated parks and removable flood-barriers. 
+	
+# Is SLR a new phenomenon? 
+  Historically, mean global sea levels have not differed significantly since the last deglaciation. However, the rates of SLR have increased and accelerated in the past twenty to thirty years. In this time frame, since about 1993, there have been two major contributors to SLR: the thermal expansion of seawater due to global warming and water mass input from glaciers and reservoirs. Many reports have also found that glaciers contribute to about 30% of global Sea Level Rise. Similar to many modern issues, these numbers have come from technology, which has greatly increased our understanding and direct knowledge of SLR. The creation and application of remote sensing tools in the early 1990s and 2000s, respectively called InSAR, GRACE, and GRACE-FO, have contributed significant amounts of data from observing polar ice sheets. These tools have also helped in predicting the future of SLR and found that both Greenland and West Antarctica are losing mass at an accelerated rate (Samela). This acceleration is at least in part due to nonuniform ocean warming (Nicholls). In other words, the [global mean sea level](https://sealevel.nasa.gov/understanding-sea-level/key-indicators/global-mean-sea-level/) is rising. 
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+ggplotly(gmslPlot)
+```
+  
+
+# Can We Adapt? 
+	Although it can be difficult to predict SLR, “the rapid changes observed in polar regions suggest that the ice sheets respond to current warming on much shorter time scales than previously anticipated” (Nicholls). This is and should be worrisome to coasts across the globe. The impacts of SLR are widespread and numerous, impacting both human lives and infrastructure. The most worrisome physical impact of SLR is increased flooding of coastal areas. Its long term impacts include a decline in coastal wetlands, erosion, and saltwater intrusion into surface water. Many studies do not consider the impacts of adaptation plans, and therefore overestimate the potential damage caused by Sea Level Rise (Nicholls). Additionally, “the world’s populated coasts became increasingly managed and engineered over the 20th century,” which has created a unique intersection between human development and rising tides (Nicholls). As previously stated, this development has reached a crossroads in New York, with the acknowledgment of climate-based SLR and many adaptations and mitigation plans to choose from.
+	
+# Impacts on New York 
+	
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+tmap_mode("view")
+pfrimMap
+```
+  This map displays data from FEMA's [Preliminary Flood Rate Insurance Mapping](https://www.fema.gov/view-your-communitys-preliminary-flood-hazard-data), including the level of [flood hazard](https://efotg.sc.egov.usda.gov/references/public/NM/FEMA_FLD_HAZ_guide.pdf) (fldHz), [Base Flood Elevation](https://www.massivecert.com/blog/where-does-base-flood-elevation-come-from) (bfe), and NYCs [Coastal Barrier Resource System](https://www.fema.gov/fema-common-faq/coastal-barrier-resources-system-cbrs) (cbrs). Additionally, it includes data for Hurricane Sandy's inundation zones. All layers can be toggled on or off  
+  
+  The city of New York has been subjected to [at least a foot of Sea Level Rise since 1900](https://www.dec.ny.gov/energy/45202.html) and this problem will only become worse as time goes on (Department of Environmental Conservation). The coasts of NYC are home to over half the city’s population and thus, are at great risk as many families and homes do not have the knowledge or tools to deal with flooding. A crucial aspect to understand risk and the impacts of SLR is the presence of mapping and a geospatial approach; “risk and hazard mapping has a long and rich tradition, and presenting spatial risks and hazards has been applied in a wide range of contexts” (Lesley). The ability to map risk is essential to emergency planning, response, adaptation, and mitigation. FEMA, in particular, has contributed a large amount of work toward flood insurance, providing preliminary flood insurance rate maps to anyone who may be affected by flooding. New York City has already dealt with the implications of climate-induced flooding, losing a total of nineteen billion dollars from the damages caused by Hurricane Sandy. 
+
+	
+# Strategies for Resilience, Mitigation, and Adaptation	
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}	
+tmap_mode("view")
+nyMap   
+```
+	This map displays [census tracts](https://simplyanalytics.zendesk.com/hc/en-us/articles/204848916-What-is-a-census-tract-) divided into Median Household Income in comparison with FEMAs flood hazard rates, as well as the [projected 100 year floodplains for 2020 (slr20FP) and 2050 (slr50FP)](https://www.usgs.gov/special-topic/water-science-school/science/floods-and-recurrence-intervals?qt-science_center_objects=0#qt-science_center_objects). These layers may be toggled on or off to the user's discretion. 
+	
+	
+	Recently, in March of 2019, New York City Mayor Bill de Blasio proposed a plan to [extend Manhattan by 500 feet into the East River in order to mitigate the impacts of SLR](https://www.governing.com/topics/transportation-infrastructure/gov-nyc-sea-level-rise-de-blasio.html) (Vock). This project is rumored to cost anywhere between 500 million and 10 billion dollars, depednding on the extent of this project. In this same meeting, Mayor de Blasio asserted that global warming will no longer be debated in New York, meaning that he will do all he can to minimize its impacts (Chen). Data from the [Manhattan Coastal Resiliency Survey](https://edc.nyc/project/lower-manhattan-coastal-resiliency) say that 37% of buildings in Lower Manhattan will be at risk of flooding by 2050 and that 50% will be at risk by 2100. Over the next two years, the Manhattan Coastal Resiliency Survey will work with the Mayor’s Office of Resiliency to finance and complete The Financial District and Seaport Climate Resilience Master Plan. This plan will focus on high flood risk neighborhoods that do not have the capacity to adapt to rising tides. 
+	
+# Who Suffers the Most? 
+	Sea Level Rise is an interesting environmental justice phenomenon because, unlike many other social justice issues, it does not always disproportionately impact minority groups. In the US especially, many wealthy people enjoy life along coastlines with easy access to beaches and ocean views. This being said, however, SLR is still an issue that will affect low-income groups more than their counterparts. Looking at median household income for New York, many low-income groups are at risk of rising tides in the near future. These low-income groups have less access and ability to pay for crucial solutions such as purchasing flood insurance, elevating their homes, or completely relocating. To help combat SLR it is necessary for local and state governments to invest in infrastructure to protect those most at risk. It is not simply the flooding that takes lives and destroys homes, but inequality. 
+  New York’s $335 million dollar flood wall and incorporation of the BIG U plan may provide examples to other cities to follow in its path. However, many cities are not as wealthy as NYC and do not have the same capacity for construction. Luckily, massive, man-made, sea walls and large construction undertakings are not the only ways to mitigate SLR. [Many cities](https://sealevelrise.org/solutions/) can use the funds they do have to upgrade sewage systems, raise roadways, or create natural infrastructures such as mangrove forests, marshes, and oyster reefs. Building natural infrastructure is a sustainable, environmentally friendly, solution to mitigate flooding. Hopefully, New York can become the rule for sea level rise preparedness and infrastructure, rather than the exception. 
+
+# References Cited 
+Chen, Angela. “NYC Mayor Has a $10 Billion Plan to Protect Manhattan from Rising Seas.” The Verge, Vox Media, 14 Mar. 2019, www.theverge.com/2019/3/14/18265833/new-york-city-climate-change-sea-level-rise-bill-de-blasio-development.
+Grannis, Jessica. “Rebuilding with Resilience: Lessons from the Rebuild by Design Competition after Hurricane Sandy.” Rebuilding with Resilience: Lessons from the Rebuild by Design Competition after Hurricane Sandy | PreventionWeb.net, The Rockefeller Foundation, 2016, www.preventionweb.net/publications/view/51032. 
+Green, Jared. “Berms Aren't Enough: NYC Shifts Course on ‘Big U’ Resilience Plan.” THE DIRT, 8 Aug. 2019, dirt.asla.org/2019/06/20/first-phase-of-big-u-pivots-to-sea-walls/.
+Horton, Radley, et al. “New York City Panel on Climate Change 2015 Report Chapter 2: Sea Level Rise and Coastal Storms.” Annals of the New York Academy of Sciences, vol. 1336, no. 1, 16 Feb. 2015, pp. 36–44., doi:10.1111/nyas.12593.
+“Lower Manhattan Coastal Resiliency.” NYCEDC, 14 Mar. 2019, edc.nyc/project/lower-manhattan-coastal-resiliency.
+“Mayor De Blasio Announces Resiliency Plan to Protect Lower Manhattan From Climate Change.” The Official Website of the City of New York, 14 Mar. 2019, www1.nyc.gov/office-of-the-mayor/news/140-19/mayor-de-blasio-resiliency-plan-protect-lower-manhattan-climate-change#/0.
+Nicholls, R. J., and A. Cazenave. “Sea-Level Rise and Its Impact on Coastal Zones.” Science, vol. 328, no. 5985, 2010, pp. 1517–1520., doi:10.1126/science.1185782.
+“NYC: The BIG U.” Rebuild by Design, www.rebuildbydesign.org/our-work/all-proposals/winning-projects/big-u.
+Patrick, Lesley, et al. “New York City Panel on Climate Change 2015 Report Chapter 3: Static Coastal Flood Mapping.” Annals of the New York Academy of Sciences, vol. 1336, no. 1, 16 Feb. 2015, pp. 45–55., doi:10.1111/nyas.12590.
+Rahmstorf, Stefan. “Response to Comments on ‘A Semi-Empirical Approach to Projecting Future Sea-Level Rise.’” Science, vol. 317, no. 5846, 2007, pp. 1866d–1866d., doi:10.1126/science.1141283.
+Samela, Caterina, et al. “Dataset of 100-Year Flood Susceptibility Maps for the Continental U.S. Derived with a Geomorphic Method.” Data in Brief, vol. 12, June 2017, pp. 203–207., doi:10.1016/j.dib.2017.03.044.
+“Sea Level Rise.” Sea Level Rise - NYS Dept. of Environmental Conservation, www.dec.ny.gov/energy/45202.html.
+SeaLevelRise.org. “New York's Sea Level Is Rising.” Sea Level Rise, sealevelrise.org/states/new-york/.
+Vock, Daniel C. “Is New York's Plan to Fight Rising Sea Levels a Model for Other Cities?” Governing, www.governing.com/topics/transportation-infrastructure/gov-nyc-sea-level-rise-de-blasio.html.
+
+
+
+
+
+
+
+
+
+
+
